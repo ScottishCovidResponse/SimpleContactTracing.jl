@@ -22,7 +22,8 @@ function seirs_ibm(params)
 
 	# initial conditions
 	I0 = params.I0
-	primary_cases = 1:ceil(Int, I0 * N)
+	sampler_person = sampler(DiscreteUniform(1,N))
+	primary_cases = sort([rand(sampler_person) for _ in 1:(I0 * N)])
 
 	# data recording
 	num_vars = 4 # 1 each for [S,E,I,R]
@@ -35,7 +36,7 @@ function seirs_ibm(params)
 	# Contact Matrix times ("Who Contacted Who")
 	size(params.WCW) == (N, N) || error("WCW matrix miss-sized")
 	params.WCW .= 0
-
+	
 	# set up a nice progress bar
 	values = ceil(Int, num_itns * T / dt)
 	progbar = Progress(values, dt=1, barglyphs=BarGlyphs("[=> ]"))
