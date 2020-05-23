@@ -2,6 +2,7 @@ using Statistics
 using StatsBase
 using Distributions
 using ProgressMeter
+using SparseArrays
 
 include("Person.jl")
 include("ibm_fns.jl")
@@ -31,7 +32,8 @@ function seirs_ibm(params)
 	dt = min(rec_width, params.dt)
 
 	# Contact Matrix times ("Who Contacted Who")
-	WCW = zeros(N, N)
+	size(params.WCW) == (N, N) || error("WCW matrix miss-sized")
+	params.WCW .= 0
 
 	# set up a nice progress bar
 	values = ceil(Int, num_itns * T / dt)
@@ -42,7 +44,7 @@ function seirs_ibm(params)
 		# reset to starting conditions
 		reset_popn!(X)   # population
 		t = 0.0          # time
-		WCW .= 0.0       # contact matrix
+		params.WCW .= 0       # contact matrix
 		t_next_rec = 0.0 # time to next record
 		rec = 0          # record number
 
@@ -63,15 +65,22 @@ function seirs_ibm(params)
 			end #while
 
 			# simulate contacts and note exposures
-			make_contacts!(WCW, X, t, dt, params)
+			make_contacts!(params.WCW, X, t, dt, params)
 
 			# update time
 			t += dt
 
 			# check for E → I → R → S and save S and I
 			update_statuses!(X, t)
-
-			@. WCW = max(WCW - dt, 0.0)
+			if params.dropzero
+				dropzeros!(params.WCW)
+				nz = nonzeros(params.WCW)
+				nz .-= one(eltype(nz))
+			else
+				nz = nonzeros(params.WCW)
+				nz .= max.(nz, one(eltype(nz)))
+				nz .-= one(eltype(nz))
+			end
 		end # time loop
 
 		# finish recording in case a leap is > rec_width

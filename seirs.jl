@@ -1,3 +1,4 @@
+using SparseArrays
 include("seirs_det.jl")
 include("seirs_stoch.jl")
 include("seirs_ibm.jl")
@@ -55,7 +56,10 @@ params = (
 	num_recs = 301, # records per iteration
 	num_groups = 1, # metapopulations
 	contact_rate = 20.0, # contact rate (IBM)
-	dt = timestep
+	dt = timestep,       # time step (IBM)
+
+	WCW = spzeros(mat_type, N, N),
+	dropzero = false
 )
 
 run_all(params)
