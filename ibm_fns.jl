@@ -20,19 +20,19 @@ end #fn
 """
     expose!(S, I, tE, params)
 """
-function expose!(S, I, tE, params)
-    mean_α = 1 / params.α
-    mean_γ = 1 / params.γ
-    mean_σ = 1 / params.σ
+function expose!(S, I, tE, params,
+				 samplers = (α = sampler(Exponential(inv(params.α))),
+	γ = sampler(Exponential(inv(params.γ))),
+	σ = sampler(Exponential(inv(params.σ)))))
 
     # change status and set infective responsible
     S.status = :E
     S.infected_by = I
 
     # calculate future trajectory
-    tI = tE + rand(Exponential(mean_α))
-    tR = tI + rand(Exponential(mean_γ))
-    tS = tR + rand(Exponential(mean_σ))
+    tI = tE + rand(samplers.α)
+    tR = tI + rand(samplers.γ)
+    tS = tR + rand(samplers.σ)
 
     S.t_enter_E = tE
     S.t_enter_I = tI
@@ -53,21 +53,27 @@ function make_contacts!(WCW, X, t, dt, params)
 	contact_rate = params.contact_rate
 	p_transmission = params.β / contact_rate
 
+	sampler_person = sampler(DiscreteUniform(1,N))
+	sampler_num = sampler(Poisson(contact_rate * dt))
+	sampler_bern = sampler(Bernoulli(p_transmission))
+	samplers = (α = sampler(Exponential(inv(params.α))),
+				γ = sampler(Exponential(inv(params.γ))),
+    			σ = sampler(Exponential(inv(params.σ))))
 	for x in X
 		x.status != :I && continue
 
-		num_contacts = rand(Poisson(contact_rate * dt))
+		num_contacts = rand(sampler_num)
 		for i in 1:num_contacts
 			# sample with replacement
 			# there's no reason why you can't spend multiple contacts on the same
 			# individual and increase probability of transmission
-			c = rand(1:N)
+			c = rand(sampler_person)
 
 			# note contact
-			WCW[c, i] = 14 # FIXME move to parameters
+			WCW[c, i] = params.track_steps
 
-			if X[c].status == :S && rand() < p_transmission
-				expose!(X[c], i, t, params)
+			if X[c].status == :S && rand(sampler_bern)
+				expose!(X[c], i, t, params, samplers)
 			end #if
 		end #for
 	end # for

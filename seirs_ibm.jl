@@ -8,6 +8,7 @@ include("Person.jl")
 include("ibm_fns.jl")
 
 function seirs_ibm(params)
+	states = (:S, :E, :I, :R)
 	# main parameters
 	T = params.T
 	num_recs = params.num_recs
@@ -61,7 +62,9 @@ function seirs_ibm(params)
 			while t ≥ t_next_rec && rec < num_recs
 				rec += 1
 				t_next_rec += rec_width
-				records[:, rec, itn] = [get_sum(X, v) for v in (:S, :E, :I, :R)]
+				for (i, state) in enumerate(states)
+					records[i, rec, itn] = get_sum(X, state)
+				end
 			end #while
 
 			# simulate contacts and note exposures
@@ -86,7 +89,9 @@ function seirs_ibm(params)
 		# finish recording in case a leap is > rec_width
 		# alternatively could cap dt at rec_width, I just prefer it this way
 		while rec < num_recs
-			records[:, rec, itn] = [get_sum(X, v) for v in (:S, :E, :I, :R)]
+			for (i, state) in enumerate(states)
+				records[i, rec, itn] = get_sum(X, state)
+			end
 		end
 	end # iterations
 

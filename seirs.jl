@@ -57,9 +57,11 @@ params = (
 	num_groups = 1, # metapopulations
 	contact_rate = 20.0, # contact rate (IBM)
 	dt = timestep,       # time step (IBM)
+	track_steps = ceil(mat_type, track_days / timestep),
 
 	WCW = spzeros(mat_type, N, N),
 	dropzero = false
 )
 
 run_all(params)
+run_all(params, true)
