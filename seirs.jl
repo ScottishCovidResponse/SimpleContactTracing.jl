@@ -2,6 +2,8 @@ include("seirs_det.jl")
 include("seirs_stoch.jl")
 include("seirs_ibm.jl")
 
+using BenchmarkTools
+
 function run_all(p, do_plot = false)
 	if !do_plot
 		println("\nIndividual Based model:")
