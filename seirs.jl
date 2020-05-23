@@ -65,3 +65,5 @@ params = (
 
 run_all(params)
 run_all(params, true)
+
+@benchmark seirs_ibm($params)
