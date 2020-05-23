@@ -1,0 +1,104 @@
+using Statistics
+using StatsBase
+using Distributions
+using ProgressMeter
+
+include("Person.jl")
+include("ibm_fns.jl")
+
+function seirs_ibm(params)
+	# main parameters
+	T = params.T
+	num_recs = params.num_recs
+	num_itns = params.num_itns
+	num_groups = params.num_groups
+	method = params.method
+	N = round(Int, params.c) # this must be an integer
+
+	# population data
+	X = [Persons.Person() for _ in 1:N]
+
+	# initial conditions
+	I0 = params.I0
+	primary_cases = 1:ceil(Int, I0 * N)
+
+	# data recording
+	num_vars = 4 # 1 each for [S,E,I,R]
+	rec_width = T / (num_recs - 1)
+	records = zeros(num_vars, num_recs, num_itns)
+
+	# dt is constant for now, it might vary in the future
+	dt = min(rec_width, params.dt)
+
+	# Contact Matrix times ("Who Contacted Who")
+	WCW = zeros(N, N)
+
+	# set up a nice progress bar
+	values = ceil(Int, num_itns * T / dt)
+	progbar = Progress(values, dt=1, barglyphs=BarGlyphs("[=> ]"))
+
+	# Iterations start here
+	for itn in 1:num_itns
+		# reset to starting conditions
+		reset_popn!(X)   # population
+		t = 0.0          # time
+		WCW .= 0.0       # contact matrix
+		t_next_rec = 0.0 # time to next record
+		rec = 0          # record number
+
+		# add primary cases
+		index_case = 0
+		for i in primary_cases
+			expose!(X[i], index_case, t, params)
+		end #for
+
+		# Time Loop begins here
+		while t ≤ T
+			next!(progbar)
+
+			while t ≥ t_next_rec && rec < num_recs
+				rec += 1
+				t_next_rec += rec_width
+				records[:, rec, itn] = [get_sum(X, v) for v in (:S, :E, :I, :R)]
+			end #while
+
+			# simulate contacts and note exposures
+			make_contacts!(WCW, X, t, dt, params)
+
+			# update time
+			t += dt
+
+			# check for E → I → R → S and save S and I
+			update_statuses!(X, t)
+
+			@. WCW = max(WCW - dt, 0.0)
+		end # time loop
+
+		# finish recording in case a leap is > rec_width
+		# alternatively could cap dt at rec_width, I just prefer it this way
+		while rec < num_recs
+			records[:, rec, itn] = [get_sum(X, v) for v in (:S, :E, :I, :R)]
+		end
+	end # iterations
+
+	(params = params, soln = records)
+end #fn
+
+
+function plot_ibm(results)
+	# extract parameters to get time
+	T = results.params.T
+	num_recs = results.params.num_recs
+	t = range(0, T, length=num_recs)
+
+	# simple mean of variables
+	soln = results.soln
+	X = dropdims(mean(soln, dims=3), dims=3)'
+
+	plot(t, X, lw=3,
+	xlim=(0, T),
+	xlab="Time",
+	ylab="Population",
+	title="Individual-based SEIRS model",
+	label=["S" "E" "I" "R"])
+end #fn
